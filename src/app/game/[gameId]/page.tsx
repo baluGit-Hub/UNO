@@ -10,8 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ColorPicker } from "@/components/game/color-picker";
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { db } from "@/lib/firebase";
-import { ref, onValue, set, get } from "firebase/database";
 
 type GameStage = "loading" | "waiting" | "playing" | "gameOver";
 
@@ -32,7 +30,6 @@ export default function GamePage() {
   const playerName = searchParams.get('playerName');
   const isNewGame = searchParams.get('newGame') === 'true';
   const maxPlayers = parseInt(searchParams.get('maxPlayers') || '4', 10);
-  const gameRef = useMemo(() => ref(db, `games/${gameId}`), [gameId]);
 
   useEffect(() => {
     if (!playerName) {
@@ -40,7 +37,6 @@ export default function GamePage() {
         router.push('/');
         return;
     }
-    // Use localStorage to keep playerId stable across reloads for the same user in the same browser tab
     let storedPlayerId = localStorage.getItem(`uno-player-id-${gameId}`);
     if (!storedPlayerId) {
         storedPlayerId = `player-${Math.random().toString(36).substr(2, 9)}`;
@@ -52,17 +48,26 @@ export default function GamePage() {
     setPlayerId(storedPlayerId);
   }, [playerName, router, gameId]);
 
-  const updateGameState = useCallback((newState: GameState) => {
-    console.log("Updating game state in Firebase:", newState);
-    return set(gameRef, newState);
-  }, [gameRef]);
+  const updateGameState = useCallback(async (newState: GameState) => {
+    console.log("Updating game state via API:", newState);
+    try {
+        await fetch(`/api/game/${gameId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newState),
+        });
+    } catch (error) {
+        console.error("Failed to update game state:", error);
+        toast({ title: "Connection Error", description: "Failed to save game state.", variant: "destructive" });
+    }
+  }, [gameId, toast]);
 
   const handleStartGame = useCallback(async () => {
     if (!isNewGame || !playerId || !playerName) return;
     console.log("handleStartGame called for new game.");
 
     const players: Player[] = [
-      { id: playerId, name: playerName!, hand: [], isAI: false },
+      { id: playerId, name: playerName!, hand: [], isAI: false, saidUno: false },
     ];
 
     let deck = createDeck();
@@ -100,37 +105,43 @@ export default function GamePage() {
     if (isNewGame || !playerId || !playerName) return;
     console.log(`joinGame called. Player: ${playerName} (${playerId})`);
 
-    const snapshot = await get(gameRef);
-    if (snapshot.exists()) {
-        const existingState: GameState = snapshot.val();
-        console.log("Found existing game state:", existingState);
-        
-        const playerInGame = existingState.players.find(p => p.id === playerId);
+    try {
+        const response = await fetch(`/api/game/${gameId}`);
+        if (response.ok) {
+            const existingState: GameState = await response.json();
+            console.log("Found existing game state:", existingState);
+            
+            const playerInGame = existingState.players.find(p => p.id === playerId);
 
-        if (!playerInGame) {
-            console.log("Player is not in the game yet. Attempting to join.");
-            if (existingState.players.length < existingState.maxPlayers) {
-                let deck = existingState.deck;
-                const hand = deck.splice(0,7);
-                const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
-                const newPlayers = [...existingState.players, newPlayer];
-                const newGameState = {...existingState, players: newPlayers, deck };
-                console.log("New game state for joining player:", newGameState);
-                await updateGameState(newGameState);
+            if (!playerInGame) {
+                console.log("Player is not in the game yet. Attempting to join.");
+                if (existingState.players.length < existingState.maxPlayers) {
+                    let deck = existingState.deck;
+                    const hand = deck.splice(0,7);
+                    const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false, saidUno: false };
+                    const newPlayers = [...existingState.players, newPlayer];
+                    const newGameState = {...existingState, players: newPlayers, deck };
+                    console.log("New game state for joining player:", newGameState);
+                    await updateGameState(newGameState);
+                } else {
+                    console.log("Game is full.");
+                    toast({title: "Game is full", variant: "destructive"});
+                    router.push('/');
+                }
             } else {
-                console.log("Game is full.");
-                toast({title: "Game is full", variant: "destructive"});
-                router.push('/');
+                console.log("Player is already in the game.");
             }
         } else {
-            console.log("Player is already in the game.");
+            console.log("Game not found.");
+            toast({title: "Game not found", variant: "destructive"});
+            router.push('/');
         }
-    } else {
-        console.log("Game not found.");
-        toast({title: "Game not found", variant: "destructive"});
+    } catch (error) {
+        console.error("Failed to join game:", error);
+        toast({ title: "Connection Error", description: "Could not fetch game data.", variant: "destructive" });
         router.push('/');
     }
-  }, [isNewGame, playerName, playerId, gameRef, router, toast, updateGameState]);
+  }, [isNewGame, playerName, playerId, gameId, router, toast, updateGameState]);
 
 
   useEffect(() => {
@@ -148,32 +159,45 @@ export default function GamePage() {
     }
   }, [isNewGame, handleStartGame, joinGame, playerId, playerName]);
   
-  // Firebase listener
+  // Polling for game state
   useEffect(() => {
-    const unsubscribe = onValue(gameRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        console.log("Firebase listener updated with new data:", data);
-        setGameState(data);
-        setHasDrawn(false);
-        if (data.isGameOver) {
-          setGameStage("gameOver");
-        } else if (data.players.length < data.maxPlayers && !data.isGameOver) {
-          setGameStage("waiting");
+    const fetchAndUpdateState = async () => {
+        try {
+            const response = await fetch(`/api/game/${gameId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setGameState(data);
+            } else if (response.status === 404 && !isNewGame) {
+                // Game ended or doesn't exist, and we weren't trying to create one.
+                toast({ title: "Game not found", description: "The game you were in no longer exists.", variant: "destructive" });
+                router.push('/');
+            }
+        } catch (error) {
+            console.error("Polling error:", error);
         }
-        else {
-          setGameStage("playing");
-        }
-      } else if (!isNewGame) {
-        console.log("Firebase listener: No data found for existing game.");
-      }
-    });
+    };
+    
+    const pollInterval = setInterval(fetchAndUpdateState, 2000); // Poll every 2 seconds
 
-    return () => {
-      console.log("Firebase listener unsubscribed.");
-      unsubscribe();
-    }
-  }, [gameRef, isNewGame, maxPlayers]);
+    return () => clearInterval(pollInterval);
+  }, [gameId, isNewGame, router, toast]);
+
+  useEffect(() => {
+      if (!gameState) return;
+
+      setHasDrawn(false);
+      if (gameState.isGameOver) {
+          setGameStage("gameOver");
+      } else if (gameState.players.length < gameState.maxPlayers && !gameState.isGameOver) {
+          setGameStage("waiting");
+      } else {
+          setGameStage("playing");
+      }
+      // Notify all players if someone called UNO
+      if (gameState.turnMessage && gameState.turnMessage.includes('called UNO!')) {
+        toast({ title: "UNO!", description: gameState.turnMessage });
+      }
+  }, [gameState, toast]);
 
   const advanceTurn = useCallback((players: Player[], currentIndex: number, direction: 'clockwise' | 'counterclockwise') => {
     if (direction === 'clockwise') {
@@ -189,8 +213,23 @@ export default function GamePage() {
     let newState = { ...gameState };
     const currentPlayer = newState.players[newState.currentPlayerIndex];
 
+    // UNO Call Check
+    if (currentPlayer.hand.length === 2 && !currentPlayer.saidUno) {
+      toast({
+        title: "Forgot to call UNO!",
+        description: `${currentPlayer.name} draws 2 penalty cards.`,
+        variant: "destructive"
+      });
+      const penaltyCards = newState.deck.splice(0, 2);
+      currentPlayer.hand.push(...penaltyCards);
+    }
+
+
     const newHand = currentPlayer.hand.filter(c => c.id !== card.id);
     currentPlayer.hand = newHand;
+    
+    // Reset saidUno status after playing
+    currentPlayer.saidUno = false;
 
     newState.discardPile.push(card);
     newState.chosenColor = chosenColor;
@@ -252,7 +291,8 @@ export default function GamePage() {
     }
 
     const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-    if (!canPlayCard(card, topCard, gameState.chosenColor)) {
+    const playerHand = currentPlayer.hand;
+    if (!canPlayCard(card, topCard, gameState.chosenColor, playerHand)) {
       toast({ title: "Invalid Move", description: "You can't play that card.", variant: 'destructive' });
       return;
     }
@@ -287,6 +327,7 @@ export default function GamePage() {
 
     const drawnCard = newState.deck.shift()!;
     newState.players[newState.currentPlayerIndex].hand.push(drawnCard);
+    
     setHasDrawn(true);
     await updateGameState(newState);
     toast({ title: "Card Drawn", description: `You drew a ${drawnCard.color} ${drawnCard.value}.`});
@@ -314,15 +355,31 @@ export default function GamePage() {
   }, [processCardPlay, cardToPlay]);
   
   const handleUnoClick = useCallback(async () => {
-    console.log("UNO clicked");
-  }, []);
+    if (!gameState || !playerId) return;
+
+    const playerIndex = gameState.players.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) return;
+
+    let newState = { ...gameState };
+    newState.players[playerIndex].saidUno = true;
+    newState.turnMessage = `${newState.players[playerIndex].name} called UNO!`;
+    await updateGameState(newState);
+
+    toast({
+      title: "UNO!",
+      description: `${newState.players[playerIndex].name} has one card left!`,
+    });
+  }, [gameState, playerId, updateGameState, toast]);
 
   const renderContent = () => {
+    if (!gameState) {
+      return <p>Loading game...</p>;
+    }
     switch (gameStage) {
       case "loading":
         return <p>Loading game...</p>;
       case "waiting":
-         return gameState ? (
+         return (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
             <p className="mb-2">Share this Game ID: <span className="font-mono bg-muted px-2 py-1 rounded">{gameState.gameId}</span></p>
@@ -331,10 +388,10 @@ export default function GamePage() {
               {gameState.players.map(p => <li key={p.id}>{p.name}</li>)}
             </ul>
           </div>
-        ) : <p>Creating game...</p>;
+        );
       case "playing":
       case "gameOver":
-        return gameState && playerId ? (
+        return (
           <>
             <GameBoard
               gameState={gameState}
@@ -343,7 +400,7 @@ export default function GamePage() {
               onPassTurn={handlePassTurn}
               onUnoClick={handleUnoClick}
               isPlayerTurn={gameState.players[gameState.currentPlayerIndex].id === playerId}
-              playerId={playerId}
+              playerId={playerId!}
               hasDrawn={hasDrawn}
             />
             {gameStage === 'gameOver' && gameState.winner && (
@@ -361,7 +418,9 @@ export default function GamePage() {
               onSelectColor={handleColorSelect}
             />
           </>
-        ) : <p>Loading Game State...</p>;
+        );
+      default:
+        return <p>Loading Game State...</p>;
     }
   };
 

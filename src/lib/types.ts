@@ -27,6 +27,7 @@ export interface Player {
   name: string;
   hand: Card[];
   isAI: boolean;
+  saidUno: boolean;
 }
 
 export type GameDirection = "clockwise" | "counterclockwise";

@@ -1,46 +1,33 @@
 
 "use client";
 
-import { type Card as CardType } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Ban, RefreshCw, Plus, Shuffle, Zap } from "lucide-react";
+import { Card as CardType } from "@/lib/types";
+import { GiCardPick, GiCardRandom, GiCardDraw, GiCardExchange } from "react-icons/gi";
 
-interface CardProps {
-  card: CardType | "back";
-  onClick?: (card: CardType) => void;
-  isPlayable?: boolean;
-}
-
-const colorClasses = {
-  Red: "bg-red-500 text-white",
-  Green: "bg-green-500 text-white",
-  Blue: "bg-blue-500 text-white",
-  Yellow: "bg-yellow-400 text-black",
-  Wild: "bg-black text-white",
+const colorClasses: Record<string, string> = {
+  Red: "bg-gradient-to-br from-red-500 to-red-700 border-red-700 text-white",
+  Green: "bg-gradient-to-br from-green-400 to-green-700 border-green-700 text-white",
+  Blue: "bg-gradient-to-br from-blue-400 to-blue-700 border-blue-700 text-white",
+  Yellow: "bg-gradient-to-br from-yellow-300 to-yellow-500 border-yellow-500 text-black",
+  Wild: "bg-gradient-to-br from-gray-200 to-gray-400 border-gray-500 text-black",
 };
 
 const iconMap = {
-  Skip: Ban,
-  Reverse: RefreshCw,
-  "Draw Two": (props: any) => <span {...props}>+2</span>,
-  "Draw Four": (props: any) => <span {...props}>+4</span>,
-  Wild: Shuffle,
+  "Skip": GiCardDraw,
+  "Reverse": GiCardExchange,
+  "Draw Two": GiCardPick,
+  "Wild": GiCardRandom,
+  "Draw Four": GiCardRandom,
 };
 
-function CardBack() {
-  return (
-    <div className="w-24 h-36 md:w-28 md:h-40 rounded-lg bg-black flex items-center justify-center shadow-lg border-2 border-neutral-700 relative overflow-hidden">
-      <div className="absolute w-full h-full bg-gradient-to-br from-neutral-800 to-black opacity-50"></div>
-      <div className="relative text-red-500">
-        <h1 className="text-4xl font-bold">UNO</h1>
-      </div>
-    </div>
-  );
-}
-
-export function Card({ card, onClick, isPlayable = false }: CardProps) {
+export function Card({ card, onClick, isPlayable = false }: { card: CardType | "back"; onClick?: (card: CardType) => void; isPlayable?: boolean }) {
   if (card === "back") {
-    return <CardBack />;
+    return (
+      <div className="w-20 h-32 md:w-24 md:h-36 rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 border-4 border-white flex items-center justify-center shadow-lg">
+        <span className="text-3xl font-bold text-white">UNO</span>
+      </div>
+    );
   }
 
   const Icon = iconMap[card.value as keyof typeof iconMap];
@@ -58,17 +45,16 @@ export function Card({ card, onClick, isPlayable = false }: CardProps) {
       onClick={handleCardClick}
       disabled={!isPlayable}
       className={cn(
-        "w-24 h-36 md:w-28 md:h-40 rounded-lg p-2 flex flex-col justify-between shadow-lg transition-all duration-200 ease-in-out transform border-4 border-white dark:border-neutral-800",
+        "w-20 h-32 md:w-24 md:h-36 rounded-xl p-2 flex flex-col justify-between shadow-xl border-4 transition-all duration-200 ease-in-out transform",
         colorClasses[card.color],
-        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background" : "cursor-not-allowed",
-        !isPlayable && card.color !== 'Wild' && 'opacity-70'
+        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background scale-105" : "cursor-not-allowed opacity-70"
       )}
     >
-      <div className="text-left font-bold text-2xl">{card.value}</div>
+      <div className="text-left font-extrabold text-2xl drop-shadow-lg">{card.value}</div>
       <div className="flex items-center justify-center">
-        {Icon ? <Icon className="h-10 w-10" /> : <span className="font-bold text-6xl drop-shadow-lg">{card.value}</span>}
+        {Icon ? <Icon className="h-10 w-10" /> : <span className="font-extrabold text-5xl drop-shadow-lg">{card.value}</span>}
       </div>
-      <div className="text-right font-bold text-2xl self-end transform rotate-180">{card.value}</div>
+      <div className="text-right font-extrabold text-2xl self-end transform rotate-180 drop-shadow-lg">{card.value}</div>
     </button>
   );
 }

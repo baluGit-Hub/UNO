@@ -39,8 +39,13 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return deck;
 }
 
-export function canPlayCard(card: Card, topCard: Card, chosenColor: CardColor | null): boolean {
+export function canPlayCard(card: Card, topCard: Card, chosenColor: CardColor | null, playerHand: Card[]): boolean {
   if (card.color === "Wild") {
+    if (card.value === "Draw Four") {
+      const playableColor = chosenColor || topCard.color;
+      // Player can't have any other card that matches the current color
+      return !playerHand.some(c => c.color === playableColor);
+    }
     return true;
   }
   if (chosenColor) {

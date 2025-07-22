@@ -8,8 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/icons/logo";
 import { useRouter } from 'next/navigation';
-import { db } from "@/lib/firebase";
-import { ref, get } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -30,17 +28,21 @@ export default function Home() {
 
   const handleJoinGame = async () => {
     if (playerName && gameId) {
-       const gameRef = ref(db, `games/${gameId}`);
-       const snapshot = await get(gameRef);
-       if (snapshot.exists()) {
-            const gameData = snapshot.val();
-            if (gameData.players.length >= gameData.maxPlayers) {
-                 toast({ title: "Game is full", description: "This game has already reached the maximum number of players.", variant: "destructive" });
-                 return;
-            }
-            router.push(`/game/${gameId}?playerName=${encodeURIComponent(playerName)}`);
-       } else {
-            toast({ title: "Game not found", description: "The Game ID you entered does not exist.", variant: "destructive" });
+       try {
+           const response = await fetch(`/api/game/${gameId}`);
+           if (response.ok) {
+                const gameData = await response.json();
+                if (gameData.players.length >= gameData.maxPlayers) {
+                     toast({ title: "Game is full", description: "This game has already reached the maximum number of players.", variant: "destructive" });
+                     return;
+                }
+                router.push(`/game/${gameId}?playerName=${encodeURIComponent(playerName)}`);
+           } else {
+                toast({ title: "Game not found", description: "The Game ID you entered does not exist.", variant: "destructive" });
+           }
+       } catch (error) {
+           console.error("Failed to join game:", error);
+           toast({ title: "Error", description: "Could not connect to the server to join the game.", variant: "destructive" });
        }
     }
   };
@@ -72,7 +74,7 @@ export default function Home() {
               />
             </div>
             
-            <div className="space-y-4">
+            
                <div className="space-y-2">
                  <Label htmlFor="max-players" className="text-lg">Number of Players</Label>
                   <Select value={maxPlayers} onValueChange={setMaxPlayers}>
@@ -91,7 +93,6 @@ export default function Home() {
               <Button onClick={handleCreateGame} className="w-full text-lg py-6" size="lg" disabled={!playerName}>
                 Create New Game
               </Button>
-            </div>
             
             <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
@@ -104,7 +105,7 @@ export default function Home() {
                 </div>
             </div>
             
-            <div className="space-y-4">
+            
               <div className="space-y-2">
                 <Label htmlFor="game-id" className="text-lg">Game ID</Label>
                 <Input
@@ -118,7 +119,6 @@ export default function Home() {
               <Button onClick={handleJoinGame} className="w-full text-lg py-6" size="lg" variant="secondary" disabled={!playerName || !gameId}>
                 Join Game
               </Button>
-            </div>
 
           </CardContent>
         </Card>
