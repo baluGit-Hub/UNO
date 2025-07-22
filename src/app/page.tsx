@@ -83,6 +83,8 @@ export default function Home() {
                       <SelectItem value="2">2 Players</SelectItem>
                       <SelectItem value="3">3 Players</SelectItem>
                       <SelectItem value="4">4 Players</SelectItem>
+                      <SelectItem value="5">5 Players</SelectItem>
+                      <SelectItem value="6">6 Players</SelectItem>
                     </SelectContent>
                   </Select>
                </div>

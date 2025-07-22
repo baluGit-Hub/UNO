@@ -27,34 +27,6 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
   const opponents = gameState.players.filter(p => p.id !== playerId);
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
-  const opponentPositions: ("top" | "left" | "right")[] = ["top", "left", "right"];
-  const getOpponentByPosition = (position: "top" | "left" | "right") => {
-    if (!player) return null;
-    const playerIndex = gameState.players.findIndex(p => p.id === playerId);
-    const playerCount = gameState.players.length;
-    switch(position) {
-        case 'top':
-            if (playerCount < 2) return null;
-            if (playerCount === 2) return opponents[0];
-            if (playerCount > 2) return gameState.players[(playerIndex + 2) % playerCount];
-            return null;
-        case 'left':
-            if (playerCount < 3) return null;
-            if (playerCount === 3) return gameState.players[(playerIndex + 2) % playerCount]; // right opponent in 3 player
-            if (playerCount === 4) return gameState.players[(playerIndex + 3) % playerCount];
-            return null;
-        case 'right':
-            if (playerCount < 2) return null;
-             return gameState.players[(playerIndex + 1) % playerCount];
-    }
-     return null;
-  }
-
-  const topOpponent = getOpponentByPosition("top");
-  const leftOpponent = getOpponentByPosition("left");
-  const rightOpponent = getOpponentByPosition("right");
-
-
   if (!player) {
     return <div>Loading player...</div>;
   }
@@ -69,15 +41,16 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
         </div>
 
       {/* Opponents Area */}
-      <div className="grid grid-cols-3 grid-rows-1 gap-4 items-start justify-items-center h-[20%]">
-        <div className="justify-self-start">
-            {leftOpponent && <Opponent player={leftOpponent} position="left" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === leftOpponent.id} />}
-        </div>
-        <div>
-            {topOpponent && <Opponent player={topOpponent} position="top" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === topOpponent.id}/>}
-        </div>
-        <div className="justify-self-end">
-            {rightOpponent && <Opponent player={rightOpponent} position="right" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === rightOpponent.id}/>}
+      <div className="h-[20%] w-full flex justify-center items-start">
+        <div className="flex flex-row flex-wrap justify-center gap-4">
+         {opponents.map(opponent => (
+            <Opponent 
+              key={opponent.id} 
+              player={opponent} 
+              position="top" 
+              isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === opponent.id} 
+            />
+          ))}
         </div>
       </div>
 
