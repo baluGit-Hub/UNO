@@ -1,30 +1,34 @@
+
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { type GameState, type Player, type Card as CardType, type CardColor } from "@/lib/types";
-import { createDeck, shuffleDeck, canPlayCard } from "@/lib/game";
-import { GameBoard } from "@/components/game/game-board";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/icons/logo";
+import { useRouter } from 'next/navigation';
+import { db } from "@/lib/firebase";
+import { ref, get } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
-import { ColorPicker } from "@/components/game/color-picker";
-import { useRouter, useSearchParams } from 'next/navigation';
 
-type GameStage = "setup" | "playing" | "gameOver";
 
 export default function Home() {
   const [playerName, setPlayerName] = useState("");
   const [gameId, setGameId] = useState("");
-  const [isNewGame, setIsNewGame] = useState(true);
-
+  
   const router = useRouter();
+  const { toast } = useToast();
 
-  const handleJoinGame = () => {
+  const handleJoinGame = async () => {
     if (playerName && gameId) {
-      router.push(`/game/${gameId}?playerName=${playerName}`);
+       const gameRef = ref(db, `games/${gameId}`);
+       const snapshot = await get(gameRef);
+       if (snapshot.exists()) {
+            router.push(`/game/${gameId}?playerName=${playerName}`);
+       } else {
+            toast({ title: "Game not found", description: "The Game ID you entered does not exist.", variant: "destructive" });
+       }
     }
   };
 

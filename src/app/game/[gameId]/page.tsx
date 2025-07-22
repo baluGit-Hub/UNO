@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -9,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ColorPicker } from "@/components/game/color-picker";
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { db } from "@/lib/firebase";
+import { ref, onValue, set, get } from "firebase/database";
 
 type GameStage = "loading" | "waiting" | "playing" | "gameOver";
 
@@ -27,21 +30,22 @@ export default function GamePage() {
   const gameId = params.gameId as string;
   const playerName = searchParams.get('playerName');
   const isNewGame = searchParams.get('newGame') === 'true';
+  const gameRef = ref(db, `games/${gameId}`);
 
   useEffect(() => {
     if (!playerName) {
-        // redirect to home if no player name
         router.push('/');
     }
     const id = `player-${Math.random().toString(36).substr(2, 9)}`;
     setPlayerId(id);
   }, [playerName, router]);
 
-  // MOCKUP: In a real app, this would use a real-time database
-  const [mockDb, setMockDb] = useState<Record<string, GameState>>({});
+  const updateGameState = (newState: GameState) => {
+    return set(gameRef, newState);
+  }
 
-  const handleStartGame = useCallback(() => {
-    if (!isNewGame || !playerId) return;
+  const handleStartGame = useCallback(async () => {
+    if (!isNewGame || !playerId || !playerName) return;
 
     const players: Player[] = [
       { id: playerId, name: playerName!, hand: [], isAI: false },
@@ -72,34 +76,28 @@ export default function GamePage() {
         gameId,
     };
     
-    // MOCK DB update
-    setMockDb(prev => ({...prev, [gameId]: newGameState}));
-    setGameState(newGameState);
-    setGameStage("playing");
+    await updateGameState(newGameState);
   }, [isNewGame, gameId, playerName, playerId]);
 
 
-  const joinGame = useCallback(() => {
-    if (isNewGame || !playerId) return;
+  const joinGame = useCallback(async () => {
+    if (isNewGame || !playerId || !playerName) return;
 
-    const existingState = mockDb[gameId];
-    if (existingState && !existingState.players.find(p => p.id === playerId)) {
-        let deck = existingState.deck;
-        const hand = deck.splice(0,7);
-        const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
-        const newPlayers = [...existingState.players, newPlayer];
-        const newGameState = {...existingState, players: newPlayers, deck };
-        
-        setMockDb(prev => ({...prev, [gameId]: newGameState}));
-        setGameState(newGameState);
-        setGameStage("playing");
-    } else if (existingState) {
-        setGameState(existingState);
-        setGameStage("playing");
+    const snapshot = await get(gameRef);
+    if (snapshot.exists()) {
+        const existingState: GameState = snapshot.val();
+        if (existingState && !existingState.players.find(p => p.id === playerId)) {
+            let deck = existingState.deck;
+            const hand = deck.splice(0,7);
+            const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
+            const newPlayers = [...existingState.players, newPlayer];
+            const newGameState = {...existingState, players: newPlayers, deck };
+            await updateGameState(newGameState);
+        }
     } else {
-        setGameStage("waiting"); // Game not created yet.
+        setGameStage("waiting"); // Should be handled by create game flow
     }
-  }, [isNewGame, gameId, playerName, playerId, mockDb]);
+  }, [isNewGame, gameId, playerName, playerId, gameRef]);
 
 
   useEffect(() => {
@@ -110,12 +108,24 @@ export default function GamePage() {
     }
   }, [isNewGame, handleStartGame, joinGame, playerId]);
   
-  // This effect will simulate real-time updates from our mock DB
+  // Firebase listener
   useEffect(() => {
-    if (gameId && mockDb[gameId]) {
-        setGameState(mockDb[gameId]);
-    }
-  }, [mockDb, gameId]);
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setGameState(data);
+        if (data.isGameOver) {
+          setGameStage("gameOver");
+        } else {
+          setGameStage("playing");
+        }
+      } else {
+        setGameStage("loading");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [gameRef]);
 
 
   const advanceTurn = useCallback((players: Player[], currentIndex: number, direction: 'clockwise' | 'counterclockwise') => {
@@ -148,7 +158,7 @@ export default function GamePage() {
     } else {
       await processCardPlay(card, null);
     }
-  }, [gameState, toast, playerId]);
+  }, [gameState, toast, playerId, updateGameState]);
 
   const processCardPlay = useCallback(async (card: CardType, chosenColor: CardColor | null) => {
     if (!gameState) return;
@@ -165,8 +175,7 @@ export default function GamePage() {
     if (newHand.length === 0) {
       newState.isGameOver = true;
       newState.winner = currentPlayer;
-      setMockDb(prev => ({...prev, [gameId]: newState}));
-      setGameStage("gameOver");
+      await updateGameState(newState);
       return;
     }
 
@@ -175,6 +184,10 @@ export default function GamePage() {
     switch (card.value) {
       case 'Reverse':
         newState.gameDirection = newState.gameDirection === 'clockwise' ? 'counterclockwise' : 'clockwise';
+        // With 2 players, reverse is like a skip
+        if(newState.players.length === 2) {
+            nextPlayerIndex = advanceTurn(newState.players, nextPlayerIndex, newState.gameDirection);
+        }
         break;
       case 'Skip':
         nextPlayerIndex = advanceTurn(newState.players, nextPlayerIndex, newState.gameDirection);
@@ -200,11 +213,11 @@ export default function GamePage() {
     const nextPlayer = newState.players[nextPlayerIndex];
     newState.turnMessage = `${nextPlayer.name}'s turn...`;
 
-    setMockDb(prev => ({...prev, [gameId]: newState}));
+    await updateGameState(newState);
     setCardToPlay(null);
-  }, [gameState, advanceTurn, toast, gameId]);
+  }, [gameState, advanceTurn, toast, updateGameState]);
 
-  const handleDrawCard = useCallback(() => {
+  const handleDrawCard = useCallback(async () => {
     if (!gameState || !playerId) return;
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -223,10 +236,10 @@ export default function GamePage() {
     newState.currentPlayerIndex = advanceTurn(newState.players, newState.currentPlayerIndex, newState.gameDirection);
     newState.turnMessage = `${newState.players[newState.currentPlayerIndex].name}'s turn...`;
     
-    setMockDb(prev => ({...prev, [gameId]: newState}));
+    await updateGameState(newState);
     toast({ title: "Card Drawn", description: `You drew a ${drawnCard.color} ${drawnCard.value}.`});
 
-  }, [gameState, toast, advanceTurn, playerId, gameId]);
+  }, [gameState, toast, advanceTurn, playerId, updateGameState]);
   
   const handleColorSelect = useCallback(async (color: CardColor) => {
     if(cardToPlay) {
