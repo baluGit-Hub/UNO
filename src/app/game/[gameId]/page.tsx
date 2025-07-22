@@ -36,6 +36,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!playerName) {
+        console.log("No player name, redirecting to home.");
         router.push('/');
         return;
     }
@@ -44,16 +45,21 @@ export default function GamePage() {
     if (!storedPlayerId) {
         storedPlayerId = `player-${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem(`uno-player-id-${gameId}`, storedPlayerId);
+        console.log("Generated new playerId:", storedPlayerId);
+    } else {
+        console.log("Using existing playerId:", storedPlayerId);
     }
     setPlayerId(storedPlayerId);
   }, [playerName, router, gameId]);
 
   const updateGameState = useCallback((newState: GameState) => {
+    console.log("Updating game state in Firebase:", newState);
     return set(gameRef, newState);
   }, [gameRef]);
 
   const handleStartGame = useCallback(async () => {
     if (!isNewGame || !playerId || !playerName) return;
+    console.log("handleStartGame called for new game.");
 
     const players: Player[] = [
       { id: playerId, name: playerName!, hand: [], isAI: false },
@@ -86,30 +92,41 @@ export default function GamePage() {
     };
     
     await updateGameState(newGameState);
+    console.log("New game state created and saved.");
   }, [isNewGame, gameId, playerName, playerId, maxPlayers, updateGameState]);
 
 
   const joinGame = useCallback(async () => {
     if (isNewGame || !playerId || !playerName) return;
+    console.log(`joinGame called. Player: ${playerName} (${playerId})`);
 
     const snapshot = await get(gameRef);
     if (snapshot.exists()) {
         const existingState: GameState = snapshot.val();
+        console.log("Found existing game state:", existingState);
         
         const playerInGame = existingState.players.find(p => p.id === playerId);
 
-        if (!playerInGame && existingState.players.length < existingState.maxPlayers) {
-            let deck = existingState.deck;
-            const hand = deck.splice(0,7);
-            const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
-            const newPlayers = [...existingState.players, newPlayer];
-            const newGameState = {...existingState, players: newPlayers, deck };
-            await updateGameState(newGameState);
-        } else if (existingState.players.length >= existingState.maxPlayers && !playerInGame) {
-            toast({title: "Game is full", variant: "destructive"});
-            router.push('/');
+        if (!playerInGame) {
+            console.log("Player is not in the game yet. Attempting to join.");
+            if (existingState.players.length < existingState.maxPlayers) {
+                let deck = existingState.deck;
+                const hand = deck.splice(0,7);
+                const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
+                const newPlayers = [...existingState.players, newPlayer];
+                const newGameState = {...existingState, players: newPlayers, deck };
+                console.log("New game state for joining player:", newGameState);
+                await updateGameState(newGameState);
+            } else {
+                console.log("Game is full.");
+                toast({title: "Game is full", variant: "destructive"});
+                router.push('/');
+            }
+        } else {
+            console.log("Player is already in the game.");
         }
     } else {
+        console.log("Game not found.");
         toast({title: "Game not found", variant: "destructive"});
         router.push('/');
     }
@@ -117,11 +134,16 @@ export default function GamePage() {
 
 
   useEffect(() => {
-    if (!playerId || !playerName) return;
+    if (!playerId || !playerName) {
+      console.log("useEffect for game start/join: waiting for playerId and playerName.");
+      return;
+    }
 
     if (isNewGame) {
+        console.log("useEffect: Starting new game.");
         handleStartGame();
     } else {
+        console.log("useEffect: Joining existing game.");
         joinGame();
     }
   }, [isNewGame, handleStartGame, joinGame, playerId, playerName]);
@@ -131,6 +153,7 @@ export default function GamePage() {
     const unsubscribe = onValue(gameRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
+        console.log("Firebase listener updated with new data:", data);
         setGameState(data);
         setHasDrawn(false);
         if (data.isGameOver) {
@@ -142,12 +165,14 @@ export default function GamePage() {
           setGameStage("playing");
         }
       } else if (!isNewGame) {
-        // This might be too aggressive if a game is deleted.
-        // setGameStage("loading");
+        console.log("Firebase listener: No data found for existing game.");
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("Firebase listener unsubscribed.");
+      unsubscribe();
+    }
   }, [gameRef, isNewGame, maxPlayers]);
 
   const advanceTurn = useCallback((players: Player[], currentIndex: number, direction: 'clockwise' | 'counterclockwise') => {
@@ -346,3 +371,5 @@ export default function GamePage() {
     </main>
   );
 }
+
+    
