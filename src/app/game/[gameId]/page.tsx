@@ -40,9 +40,9 @@ export default function GamePage() {
     setPlayerId(id);
   }, [playerName, router]);
 
-  const updateGameState = (newState: GameState) => {
+  const updateGameState = useCallback((newState: GameState) => {
     return set(gameRef, newState);
-  }
+  }, [gameRef]);
 
   const handleStartGame = useCallback(async () => {
     if (!isNewGame || !playerId || !playerName) return;
@@ -136,30 +136,6 @@ export default function GamePage() {
     }
   }, []);
 
-  const handlePlayCard = useCallback(async (card: CardType) => {
-    if (!gameState || !playerId) return;
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    if (currentPlayer.id !== playerId) {
-        toast({ title: "Not your turn!", variant: 'destructive'});
-        return;
-    }
-
-    const topCard = gameState.discardPile[gameState.discardPile.length - 1];
-    if (!canPlayCard(card, topCard, gameState.chosenColor)) {
-      toast({ title: "Invalid Move", description: "You can't play that card.", variant: 'destructive' });
-      return;
-    }
-    
-    setCardToPlay(card);
-
-    if (card.color === 'Wild') {
-      setIsColorPickerOpen(true);
-    } else {
-      await processCardPlay(card, null);
-    }
-  }, [gameState, toast, playerId, processCardPlay]);
-
   const processCardPlay = useCallback(async (card: CardType, chosenColor: CardColor | null) => {
     if (!gameState) return;
 
@@ -216,6 +192,30 @@ export default function GamePage() {
     await updateGameState(newState);
     setCardToPlay(null);
   }, [gameState, advanceTurn, toast, updateGameState]);
+
+  const handlePlayCard = useCallback(async (card: CardType) => {
+    if (!gameState || !playerId) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer.id !== playerId) {
+        toast({ title: "Not your turn!", variant: 'destructive'});
+        return;
+    }
+
+    const topCard = gameState.discardPile[gameState.discardPile.length - 1];
+    if (!canPlayCard(card, topCard, gameState.chosenColor)) {
+      toast({ title: "Invalid Move", description: "You can't play that card.", variant: 'destructive' });
+      return;
+    }
+    
+    setCardToPlay(card);
+
+    if (card.color === 'Wild') {
+      setIsColorPickerOpen(true);
+    } else {
+      await processCardPlay(card, null);
+    }
+  }, [gameState, toast, playerId, processCardPlay]);
 
   const handleDrawCard = useCallback(async () => {
     if (!gameState || !playerId) return;
