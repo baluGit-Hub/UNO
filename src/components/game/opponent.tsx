@@ -1,10 +1,10 @@
+
 "use client";
 
 import { type Player } from "@/lib/types";
-import { Card as UICard, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { User } from 'lucide-react';
+import { Card } from './card';
 
 interface OpponentProps {
   player: Player;
@@ -18,29 +18,26 @@ export function Opponent({ player, position, isCurrentPlayer }: OpponentProps) {
     left: "items-start",
     right: "items-end",
   };
-  const textPositionClasses = {
-    top: "text-center",
-    left: "text-left",
-    right: "text-right",
+  const handPositionClasses = {
+    top: "flex-row",
+    left: "flex-col items-start -space-y-28",
+    right: "flex-col items-end -space-y-28",
   };
 
   return (
-    <div className={cn("flex flex-col gap-2 w-32", positionClasses[position])}>
-       <UICard className={cn("p-2 bg-card/80 backdrop-blur-sm", isCurrentPlayer && "ring-2 ring-accent shadow-lg shadow-accent/50")}>
-        <CardContent className="p-2 flex items-center justify-center gap-2">
-            <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground"><User /></AvatarFallback>
-            </Avatar>
-            <div className={cn("flex flex-col", textPositionClasses[position])}>
+    <div className={cn("flex flex-col gap-2 w-48", positionClasses[position])}>
+       <div className={cn("p-2 rounded-lg bg-black/30 backdrop-blur-sm", isCurrentPlayer && "ring-2 ring-accent shadow-lg shadow-accent/50")}>
+            <div className="flex flex-col items-center gap-1">
                 <p className="font-bold text-sm truncate">{player.name}</p>
                 <p className="text-xs text-muted-foreground">{player.hand.length} cards</p>
             </div>
-        </CardContent>
-       </UICard>
-       <div className="flex -space-x-12 justify-center">
-        {player.hand.slice(0, 5).map((_, index) => (
-            <div key={index} className="w-12 h-16 rounded-md bg-primary flex items-center justify-center shadow-md border border-primary-foreground/30" />
-        ))}
+       </div>
+       <div className={cn("flex", handPositionClasses[position])} style={{transform: "scale(0.6)"}}>
+            {player.hand.map((_, index) => (
+                <div key={index} className={cn(position === 'top' ? "-mx-8" : "my-0")}>
+                    <Card card="back" />
+                </div>
+            ))}
        </div>
     </div>
   );

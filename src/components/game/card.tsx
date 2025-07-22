@@ -1,8 +1,9 @@
+
 "use client";
 
 import { type Card as CardType } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Flame, Ban, RefreshCw, Plus, Shuffle } from "lucide-react";
+import { Ban, RefreshCw, Plus, Shuffle, Zap } from "lucide-react";
 
 interface CardProps {
   card: CardType | "back";
@@ -11,28 +12,35 @@ interface CardProps {
 }
 
 const colorClasses = {
-  Red: "bg-red-500 hover:bg-red-600",
-  Green: "bg-green-500 hover:bg-green-600",
-  Blue: "bg-blue-500 hover:bg-blue-600",
-  Yellow: "bg-yellow-400 hover:bg-yellow-500",
-  Wild: "bg-gray-800 from-red-500 via-blue-500 to-yellow-500",
+  Red: "bg-red-500 text-white",
+  Green: "bg-green-500 text-white",
+  Blue: "bg-blue-500 text-white",
+  Yellow: "bg-yellow-400 text-black",
+  Wild: "bg-black text-white",
 };
 
 const iconMap = {
   Skip: Ban,
   Reverse: RefreshCw,
-  "Draw Two": Plus,
-  "Draw Four": Plus,
+  "Draw Two": (props: any) => <span {...props}>+2</span>,
+  "Draw Four": (props: any) => <span {...props}>+4</span>,
   Wild: Shuffle,
 };
 
+function CardBack() {
+  return (
+    <div className="w-24 h-36 md:w-28 md:h-40 rounded-lg bg-black flex items-center justify-center shadow-lg border-2 border-neutral-700 relative overflow-hidden">
+      <div className="absolute w-full h-full bg-gradient-to-br from-neutral-800 to-black opacity-50"></div>
+      <div className="relative text-red-500">
+        <h1 className="text-4xl font-bold">UNO</h1>
+      </div>
+    </div>
+  );
+}
+
 export function Card({ card, onClick, isPlayable = false }: CardProps) {
   if (card === "back") {
-    return (
-      <div className="w-24 h-36 md:w-28 md:h-40 rounded-lg bg-primary flex items-center justify-center shadow-lg border-2 border-primary-foreground/50">
-        <Flame className="h-12 w-12 text-primary-foreground" />
-      </div>
-    );
+    return <CardBack />;
   }
 
   const Icon = iconMap[card.value as keyof typeof iconMap];
@@ -43,22 +51,23 @@ export function Card({ card, onClick, isPlayable = false }: CardProps) {
     }
   };
 
+  const isNumberCard = !isNaN(Number(card.value));
+
   return (
     <button
       onClick={handleCardClick}
       disabled={!isPlayable}
       className={cn(
-        "w-24 h-36 md:w-28 md:h-40 rounded-lg p-2 flex flex-col justify-between text-white shadow-lg transition-all duration-200 ease-in-out transform",
+        "w-24 h-36 md:w-28 md:h-40 rounded-lg p-2 flex flex-col justify-between shadow-lg transition-all duration-200 ease-in-out transform border-4 border-white dark:border-neutral-800",
         colorClasses[card.color],
-        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background" : "cursor-not-allowed",
-        card.color === 'Wild' && 'bg-gradient-to-br'
+        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background" : "cursor-not-allowed opacity-70",
       )}
     >
-      <div className="text-left font-bold text-2xl">{card.value.startsWith('Draw') ? `+${card.value.slice(-1)}`: card.value.length > 1 ? '' : card.value}</div>
+      <div className="text-left font-bold text-2xl">{card.value}</div>
       <div className="flex items-center justify-center">
-        {Icon ? <Icon className="h-10 w-10" /> : <span className="font-bold text-5xl">{card.value}</span>}
+        {Icon ? <Icon className="h-10 w-10" /> : <span className="font-bold text-6xl drop-shadow-lg">{card.value}</span>}
       </div>
-      <div className="text-right font-bold text-2xl self-end transform rotate-180">{card.value.startsWith('Draw') ? `+${card.value.slice(-1)}`: card.value.length > 1 ? '' : card.value}</div>
+      <div className="text-right font-bold text-2xl self-end transform rotate-180">{card.value}</div>
     </button>
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { type GameState, type Card as CardType } from "@/lib/types";
@@ -6,7 +7,8 @@ import { Opponent } from "./opponent";
 import { Card } from "./card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Info } from "lucide-react";
+import { LogOut, ArrowRight, Info, Volume2 } from "lucide-react";
+import { useRouter } from 'next/navigation';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -17,59 +19,101 @@ interface GameBoardProps {
 }
 
 export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, playerId }: GameBoardProps) {
+  const router = useRouter();
   const player = gameState.players.find(p => p.id === playerId)!;
   const opponents = gameState.players.filter(p => p.id !== playerId);
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
-  const opponentPositions: ("top" | "left" | "right")[] = ["top", "left", "right", "top"];
+  const opponentPositions: ("top" | "left" | "right")[] = ["top", "left", "right"];
+  const getOpponentByPosition = (position: "top" | "left" | "right") => {
+    const playerIndex = gameState.players.findIndex(p => p.id === playerId);
+    const playerCount = gameState.players.length;
+    switch(position) {
+        case 'top':
+            if(playerCount === 2) return opponents[0];
+            if(playerCount === 3 || playerCount === 4) return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + 2) % playerCount);
+            return opponents[1]; // Default for 3 players
+        case 'left':
+            if (playerCount < 3) return null;
+            return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + playerCount - 1) % playerCount);
+
+        case 'right':
+            if (playerCount < 2) return null;
+             return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + 1) % playerCount);
+    }
+     return null;
+  }
+
+  const topOpponent = getOpponentByPosition("top");
+  const leftOpponent = getOpponentByPosition("left");
+  const rightOpponent = getOpponentByPosition("right");
+
+  const handleUnoClick = () => {
+    // TODO: Implement UNO logic
+    console.log("UNO!");
+  };
 
   return (
-    <div className="w-full h-screen flex flex-col p-4 gap-4">
+    <div className="w-full h-screen flex flex-col p-4 gap-4 bg-background text-foreground relative">
+        <div className="absolute top-4 left-4 z-20">
+            <Button variant="destructive" onClick={() => router.push('/')}><LogOut className="mr-2"/> Quit</Button>
+        </div>
+        <div className="absolute top-4 right-4 z-20">
+            <Button variant="ghost" size="icon"><Volume2 /></Button>
+        </div>
+
       {/* Opponents Area */}
-      <div className="grid grid-cols-3 grid-rows-1 gap-4 items-start justify-items-center h-1/4">
+      <div className="grid grid-cols-3 grid-rows-1 gap-4 items-start justify-items-center h-[20%]">
         <div className="justify-self-start">
-            {opponents[1] && <Opponent player={opponents[1]} position="left" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === opponents[1].id} />}
+            {leftOpponent && <Opponent player={leftOpponent} position="left" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === leftOpponent.id} />}
         </div>
         <div>
-            {opponents[0] && <Opponent player={opponents[0]} position="top" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === opponents[0].id}/>}
+            {topOpponent && <Opponent player={topOpponent} position="top" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === topOpponent.id}/>}
         </div>
         <div className="justify-self-end">
-            {opponents[2] && <Opponent player={opponents[2]} position="right" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === opponents[2].id}/>}
+            {rightOpponent && <Opponent player={rightOpponent} position="right" isCurrentPlayer={gameState.players[gameState.currentPlayerIndex].id === rightOpponent.id}/>}
         </div>
       </div>
 
       {/* Center Area (Deck & Discard) */}
       <div className="flex-grow flex items-center justify-center gap-8">
         <div className="flex flex-col items-center gap-2">
-           <p className="font-semibold text-sm">DECK</p>
-            <button onClick={onDrawCard} disabled={!isPlayerTurn}>
+            <button onClick={onDrawCard} disabled={!isPlayerTurn} className="rounded-lg ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <Card card="back" />
             </button>
-            <p className="text-xs text-muted-foreground">{gameState.deck.length} cards left</p>
         </div>
-
         <div className="flex flex-col items-center gap-2">
-            <p className="font-semibold text-sm">PLAYED</p>
             <Card card={topCard} />
             {gameState.chosenColor && topCard.color === 'Wild' && (
-                <p className="text-xs font-bold" style={{color: `var(--${gameState.chosenColor.toLowerCase()})`}}>
-                    Color: {gameState.chosenColor}
-                </p>
+                 <div className="flex items-center gap-2 mt-2">
+                    <span className="text-sm font-semibold">Chosen Color:</span>
+                    <div className={cn("w-6 h-6 rounded-full", 
+                        gameState.chosenColor === 'Red' && 'bg-red-500',
+                        gameState.chosenColor === 'Green' && 'bg-green-500',
+                        gameState.chosenColor === 'Blue' && 'bg-blue-500',
+                        gameState.chosenColor === 'Yellow' && 'bg-yellow-500'
+                    )}></div>
+                 </div>
             )}
         </div>
       </div>
       
-      <div className="flex items-center justify-center bg-card/50 backdrop-blur-sm rounded-lg p-2 max-w-md mx-auto">
-        <Info className="w-5 h-5 mr-2 text-accent"/>
-        <p className={cn("font-bold text-lg text-foreground", isPlayerTurn && "animate-pulse text-accent")}>
-            {gameState.turnMessage}
-        </p>
-      </div>
-
       {/* Player Area */}
-      <div className="h-1/3 flex flex-col justify-end">
+      <div className="h-[40%] flex flex-col justify-end items-center">
+        <div className="text-center mb-2">
+            <p className="font-bold text-lg">{player?.name} (You)</p>
+            { isPlayerTurn && <p className="text-accent animate-pulse">Your Turn</p> }
+        </div>
         {player && <PlayerHand player={player} onPlayCard={onPlayCard} gameState={gameState} isPlayerTurn={isPlayerTurn}/>}
       </div>
+
+       {player?.hand.length === 1 && (
+        <div className="absolute bottom-1/2 right-10 z-20">
+          <Button onClick={handleUnoClick} className="bg-yellow-400 text-black hover:bg-yellow-500 text-2xl font-bold py-8 px-10 rounded-full shadow-lg animate-bounce">
+            UNO
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
