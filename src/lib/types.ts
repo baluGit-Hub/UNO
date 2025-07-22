@@ -32,6 +32,7 @@ export interface Player {
 export type GameDirection = "clockwise" | "counterclockwise";
 
 export interface GameState {
+  gameId: string;
   players: Player[];
   deck: Card[];
   discardPile: Card[];

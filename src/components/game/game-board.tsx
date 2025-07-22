@@ -13,11 +13,12 @@ interface GameBoardProps {
   onPlayCard: (card: CardType) => void;
   onDrawCard: () => void;
   isPlayerTurn: boolean;
+  playerId: string;
 }
 
-export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn }: GameBoardProps) {
-  const player = gameState.players.find(p => !p.isAI)!;
-  const opponents = gameState.players.filter(p => p.isAI);
+export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, playerId }: GameBoardProps) {
+  const player = gameState.players.find(p => p.id === playerId)!;
+  const opponents = gameState.players.filter(p => p.id !== playerId);
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
   const opponentPositions: ("top" | "left" | "right")[] = ["top", "left", "right", "top"];
