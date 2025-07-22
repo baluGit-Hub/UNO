@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { type GameState, type Player, type Card as CardType, type CardColor } from "@/lib/types";
 import { createDeck, shuffleDeck, canPlayCard } from "@/lib/game";
 import { GameBoard } from "@/components/game/game-board";
@@ -30,7 +30,7 @@ export default function GamePage() {
   const gameId = params.gameId as string;
   const playerName = searchParams.get('playerName');
   const isNewGame = searchParams.get('newGame') === 'true';
-  const gameRef = ref(db, `games/${gameId}`);
+  const gameRef = useMemo(() => ref(db, `games/${gameId}`), [gameId]);
 
   useEffect(() => {
     if (!playerName) {
@@ -77,7 +77,7 @@ export default function GamePage() {
     };
     
     await updateGameState(newGameState);
-  }, [isNewGame, gameId, playerName, playerId]);
+  }, [isNewGame, gameId, playerName, playerId, updateGameState]);
 
 
   const joinGame = useCallback(async () => {
@@ -97,7 +97,7 @@ export default function GamePage() {
     } else {
         setGameStage("waiting"); // Should be handled by create game flow
     }
-  }, [isNewGame, gameId, playerName, playerId, gameRef]);
+  }, [isNewGame, playerName, playerId, gameRef, updateGameState]);
 
 
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function GamePage() {
     } else {
       await processCardPlay(card, null);
     }
-  }, [gameState, toast, playerId, updateGameState]);
+  }, [gameState, toast, playerId, processCardPlay]);
 
   const processCardPlay = useCallback(async (card: CardType, chosenColor: CardColor | null) => {
     if (!gameState) return;
