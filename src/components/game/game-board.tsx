@@ -18,9 +18,10 @@ interface GameBoardProps {
   onUnoClick: () => void;
   isPlayerTurn: boolean;
   playerId: string;
+  hasDrawn: boolean;
 }
 
-export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUnoClick, isPlayerTurn, playerId }: GameBoardProps) {
+export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUnoClick, isPlayerTurn, playerId, hasDrawn }: GameBoardProps) {
   const router = useRouter();
   const player = gameState.players.find(p => p.id === playerId);
   const opponents = gameState.players.filter(p => p.id !== playerId);
@@ -33,16 +34,18 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
     const playerCount = gameState.players.length;
     switch(position) {
         case 'top':
-            if(playerCount === 2) return opponents[0];
-            if(playerCount === 3 || playerCount === 4) return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + 2) % playerCount);
-            return opponents[1]; // Default for 3 players
+            if (playerCount < 2) return null;
+            if (playerCount === 2) return opponents[0];
+            if (playerCount > 2) return gameState.players[(playerIndex + 2) % playerCount];
+            return null;
         case 'left':
             if (playerCount < 3) return null;
-            return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + playerCount - 1) % playerCount);
-
+            if (playerCount === 3) return gameState.players[(playerIndex + 2) % playerCount]; // right opponent in 3 player
+            if (playerCount === 4) return gameState.players[(playerIndex + 3) % playerCount];
+            return null;
         case 'right':
             if (playerCount < 2) return null;
-             return opponents.find(o => gameState.players.indexOf(o) === (playerIndex + 1) % playerCount);
+             return gameState.players[(playerIndex + 1) % playerCount];
     }
      return null;
   }
@@ -62,7 +65,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
             <Button variant="destructive" onClick={() => router.push('/')}><LogOut className="mr-2"/> Quit</Button>
         </div>
         <div className="absolute top-4 right-4 z-20">
-            <Button onClick={onPassTurn} disabled={!isPlayerTurn}>Pass Turn <SkipForward className="ml-2"/></Button>
+            <Button onClick={onPassTurn} disabled={!isPlayerTurn || !hasDrawn}>Pass Turn <SkipForward className="ml-2"/></Button>
         </div>
 
       {/* Opponents Area */}
@@ -81,7 +84,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
       {/* Center Area (Deck & Discard) */}
       <div className="flex-grow flex items-center justify-center gap-8">
         <div className="flex flex-col items-center gap-2">
-            <button onClick={onDrawCard} disabled={!isPlayerTurn} className="rounded-lg ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <button onClick={onDrawCard} disabled={!isPlayerTurn || hasDrawn} className="rounded-lg ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Card card="back" />
             </button>
         </div>
@@ -120,5 +123,3 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
     </div>
   );
 }
-
-    

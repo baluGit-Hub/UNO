@@ -34,6 +34,7 @@ export type GameDirection = "clockwise" | "counterclockwise";
 export interface GameState {
   gameId: string;
   players: Player[];
+  maxPlayers: number;
   deck: Card[];
   discardPile: Card[];
   currentPlayerIndex: number;

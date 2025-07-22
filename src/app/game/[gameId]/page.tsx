@@ -21,6 +21,7 @@ export default function GamePage() {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [cardToPlay, setCardToPlay] = useState<CardType | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [hasDrawn, setHasDrawn] = useState(false);
 
   const { toast } = useToast();
   const params = useParams();
@@ -30,6 +31,7 @@ export default function GamePage() {
   const gameId = params.gameId as string;
   const playerName = searchParams.get('playerName');
   const isNewGame = searchParams.get('newGame') === 'true';
+  const maxPlayers = parseInt(searchParams.get('maxPlayers') || '4', 10);
   const gameRef = useMemo(() => ref(db, `games/${gameId}`), [gameId]);
 
   useEffect(() => {
@@ -74,10 +76,11 @@ export default function GamePage() {
         chosenColor: null,
         turnMessage: `${players[0].name}'s turn!`,
         gameId,
+        maxPlayers,
     };
     
     await updateGameState(newGameState);
-  }, [isNewGame, gameId, playerName, playerId, updateGameState]);
+  }, [isNewGame, gameId, playerName, playerId, maxPlayers, updateGameState]);
 
 
   const joinGame = useCallback(async () => {
@@ -86,7 +89,7 @@ export default function GamePage() {
     const snapshot = await get(gameRef);
     if (snapshot.exists()) {
         const existingState: GameState = snapshot.val();
-        if (existingState && !existingState.players.find(p => p.id === playerId)) {
+        if (existingState && !existingState.players.find(p => p.id === playerId) && existingState.players.length < existingState.maxPlayers) {
             let deck = existingState.deck;
             const hand = deck.splice(0,7);
             const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
@@ -95,9 +98,10 @@ export default function GamePage() {
             await updateGameState(newGameState);
         }
     } else {
-        setGameStage("waiting"); // Should be handled by create game flow
+        toast({title: "Game not found", variant: "destructive"});
+        router.push('/');
     }
-  }, [isNewGame, playerName, playerId, gameRef, updateGameState]);
+  }, [isNewGame, playerName, playerId, gameRef, router, toast, updateGameState]);
 
 
   useEffect(() => {
@@ -114,18 +118,22 @@ export default function GamePage() {
       const data = snapshot.val();
       if (data) {
         setGameState(data);
+        setHasDrawn(false);
         if (data.isGameOver) {
           setGameStage("gameOver");
-        } else {
+        } else if (data.players.length < data.maxPlayers && !data.isGameOver) {
+          setGameStage("waiting");
+        }
+        else {
           setGameStage("playing");
         }
-      } else {
+      } else if (!isNewGame) {
         setGameStage("loading");
       }
     });
 
     return () => unsubscribe();
-  }, [gameRef]);
+  }, [gameRef, isNewGame]);
 
 
   const advanceTurn = useCallback((players: Player[], currentIndex: number, direction: 'clockwise' | 'counterclockwise') => {
@@ -191,6 +199,7 @@ export default function GamePage() {
 
     await updateGameState(newState);
     setCardToPlay(null);
+    setIsColorPickerOpen(false);
   }, [gameState, advanceTurn, toast, updateGameState]);
 
 
@@ -226,13 +235,20 @@ export default function GamePage() {
 
     let newState = { ...gameState };
     if (newState.deck.length === 0) {
-      toast({ title: "Deck is empty!", variant: 'destructive' });
-      return;
+      // reshuffle discard pile into deck
+       if (newState.discardPile.length > 1) {
+            const topCard = newState.discardPile.pop()!;
+            newState.deck = shuffleDeck(newState.discardPile);
+            newState.discardPile = [topCard];
+       } else {
+            toast({ title: "No cards to draw!", variant: 'destructive' });
+            return;
+       }
     }
 
     const drawnCard = newState.deck.shift()!;
     newState.players[newState.currentPlayerIndex].hand.push(drawnCard);
-    
+    setHasDrawn(true);
     await updateGameState(newState);
     toast({ title: "Card Drawn", description: `You drew a ${drawnCard.color} ${drawnCard.value}.`});
 
@@ -247,6 +263,7 @@ export default function GamePage() {
     newState.currentPlayerIndex = advanceTurn(newState.players, newState.currentPlayerIndex, newState.gameDirection);
     newState.turnMessage = `${newState.players[newState.currentPlayerIndex].name}'s turn...`;
     await updateGameState(newState);
+    setHasDrawn(false);
   }, [gameState, playerId, advanceTurn, updateGameState]);
   
   const handleColorSelect = useCallback(async (color: CardColor) => {
@@ -265,9 +282,18 @@ export default function GamePage() {
   const renderContent = () => {
     switch (gameStage) {
       case "loading":
-        return <p>Loading...</p>;
+        return <p>Loading game...</p>;
       case "waiting":
-        return <p>Waiting for game to be created...</p>;
+         return gameState ? (
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
+            <p className="mb-2">Game ID: <span className="font-mono bg-muted px-2 py-1 rounded">{gameState.gameId}</span></p>
+            <p className="mb-4">{gameState.players.length} of {gameState.maxPlayers} players have joined.</p>
+            <ul className="list-disc list-inside">
+              {gameState.players.map(p => <li key={p.id}>{p.name}</li>)}
+            </ul>
+          </div>
+        ) : <p>Creating game...</p>;
       case "playing":
       case "gameOver":
         return gameState && playerId ? (
@@ -275,11 +301,12 @@ export default function GamePage() {
             <GameBoard
               gameState={gameState}
               onPlayCard={handlePlayCard}
-              onDrawCard={handleDrawCard}
+              onDrawCard={onDrawCard}
               onPassTurn={handlePassTurn}
               onUnoClick={handleUnoClick}
               isPlayerTurn={gameState.players[gameState.currentPlayerIndex].id === playerId}
               playerId={playerId}
+              hasDrawn={hasDrawn}
             />
             {gameStage === 'gameOver' && gameState.winner && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -306,5 +333,3 @@ export default function GamePage() {
     </main>
   );
 }
-
-    

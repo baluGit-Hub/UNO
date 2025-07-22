@@ -11,11 +11,19 @@ import { useRouter } from 'next/navigation';
 import { db } from "@/lib/firebase";
 import { ref, get } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 
 export default function Home() {
   const [playerName, setPlayerName] = useState("");
   const [gameId, setGameId] = useState("");
+  const [maxPlayers, setMaxPlayers] = useState("4");
   
   const router = useRouter();
   const { toast } = useToast();
@@ -26,7 +34,7 @@ export default function Home() {
        const snapshot = await get(gameRef);
        if (snapshot.exists()) {
             const gameData = snapshot.val();
-            if (gameData.players.length >= 4) {
+            if (gameData.players.length >= gameData.maxPlayers) {
                  toast({ title: "Game is full", description: "This game has already reached the maximum number of players.", variant: "destructive" });
                  return;
             }
@@ -40,7 +48,7 @@ export default function Home() {
   const handleCreateGame = () => {
     if (playerName) {
       const newGameId = Math.random().toString(36).substr(2, 9);
-      router.push(`/game/${newGameId}?playerName=${playerName}&newGame=true`);
+      router.push(`/game/${newGameId}?playerName=${playerName}&newGame=true&maxPlayers=${maxPlayers}`);
     }
   };
 
@@ -63,8 +71,21 @@ export default function Home() {
                 className="text-lg py-6"
               />
             </div>
-
+            
             <div className="space-y-4">
+               <div className="space-y-2">
+                 <Label htmlFor="max-players" className="text-lg">Number of Players</Label>
+                  <Select value={maxPlayers} onValueChange={setMaxPlayers}>
+                    <SelectTrigger className="w-full text-lg py-6" id="max-players">
+                      <SelectValue placeholder="Select number of players" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 Players</SelectItem>
+                      <SelectItem value="3">3 Players</SelectItem>
+                      <SelectItem value="4">4 Players</SelectItem>
+                    </SelectContent>
+                  </Select>
+               </div>
               <Button onClick={handleCreateGame} className="w-full text-lg py-6" size="lg" disabled={!playerName}>
                 Create New Game
               </Button>
