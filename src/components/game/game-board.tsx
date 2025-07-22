@@ -20,12 +20,13 @@ interface GameBoardProps {
 
 export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, playerId }: GameBoardProps) {
   const router = useRouter();
-  const player = gameState.players.find(p => p.id === playerId)!;
+  const player = gameState.players.find(p => p.id === playerId);
   const opponents = gameState.players.filter(p => p.id !== playerId);
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
   const opponentPositions: ("top" | "left" | "right")[] = ["top", "left", "right"];
   const getOpponentByPosition = (position: "top" | "left" | "right") => {
+    if (!player) return null;
     const playerIndex = gameState.players.findIndex(p => p.id === playerId);
     const playerCount = gameState.players.length;
     switch(position) {
@@ -52,6 +53,10 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
     // TODO: Implement UNO logic
     console.log("UNO!");
   };
+
+  if (!player) {
+    return <div>Loading player...</div>;
+  }
 
   return (
     <div className="w-full h-screen flex flex-col p-4 gap-4 bg-background text-foreground relative">
@@ -107,7 +112,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
         {player && <PlayerHand player={player} onPlayCard={onPlayCard} gameState={gameState} isPlayerTurn={isPlayerTurn}/>}
       </div>
 
-       {player?.hand.length === 1 && (
+       {player.hand.length === 1 && (
         <div className="absolute bottom-1/2 right-10 z-20">
           <Button onClick={handleUnoClick} className="bg-yellow-400 text-black hover:bg-yellow-500 text-2xl font-bold py-8 px-10 rounded-full shadow-lg animate-bounce">
             UNO
