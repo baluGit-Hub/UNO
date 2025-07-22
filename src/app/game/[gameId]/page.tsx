@@ -37,10 +37,16 @@ export default function GamePage() {
   useEffect(() => {
     if (!playerName) {
         router.push('/');
+        return;
     }
-    const id = `player-${Math.random().toString(36).substr(2, 9)}`;
-    setPlayerId(id);
-  }, [playerName, router]);
+    // Use localStorage to keep playerId stable across reloads for the same user in the same browser tab
+    let storedPlayerId = localStorage.getItem(`uno-player-id-${gameId}`);
+    if (!storedPlayerId) {
+        storedPlayerId = `player-${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem(`uno-player-id-${gameId}`, storedPlayerId);
+    }
+    setPlayerId(storedPlayerId);
+  }, [playerName, router, gameId]);
 
   const updateGameState = useCallback((newState: GameState) => {
     return set(gameRef, newState);
@@ -89,13 +95,19 @@ export default function GamePage() {
     const snapshot = await get(gameRef);
     if (snapshot.exists()) {
         const existingState: GameState = snapshot.val();
-        if (existingState && !existingState.players.find(p => p.id === playerId) && existingState.players.length < existingState.maxPlayers) {
+        
+        const playerInGame = existingState.players.find(p => p.id === playerId);
+
+        if (!playerInGame && existingState.players.length < existingState.maxPlayers) {
             let deck = existingState.deck;
             const hand = deck.splice(0,7);
             const newPlayer: Player = { id: playerId, name: playerName!, hand, isAI: false };
             const newPlayers = [...existingState.players, newPlayer];
             const newGameState = {...existingState, players: newPlayers, deck };
             await updateGameState(newGameState);
+        } else if (existingState.players.length >= existingState.maxPlayers && !playerInGame) {
+            toast({title: "Game is full", variant: "destructive"});
+            router.push('/');
         }
     } else {
         toast({title: "Game not found", variant: "destructive"});
@@ -105,12 +117,14 @@ export default function GamePage() {
 
 
   useEffect(() => {
-    if (isNewGame && playerId) {
+    if (!playerId || !playerName) return;
+
+    if (isNewGame) {
         handleStartGame();
-    } else if (!isNewGame && playerId) {
+    } else {
         joinGame();
     }
-  }, [isNewGame, handleStartGame, joinGame, playerId]);
+  }, [isNewGame, handleStartGame, joinGame, playerId, playerName]);
   
   // Firebase listener
   useEffect(() => {
@@ -128,13 +142,13 @@ export default function GamePage() {
           setGameStage("playing");
         }
       } else if (!isNewGame) {
-        setGameStage("loading");
+        // This might be too aggressive if a game is deleted.
+        // setGameStage("loading");
       }
     });
 
     return () => unsubscribe();
-  }, [gameRef, isNewGame]);
-
+  }, [gameRef, isNewGame, maxPlayers]);
 
   const advanceTurn = useCallback((players: Player[], currentIndex: number, direction: 'clockwise' | 'counterclockwise') => {
     if (direction === 'clockwise') {
@@ -255,7 +269,7 @@ export default function GamePage() {
   }, [gameState, toast, playerId, updateGameState]);
 
   const handlePassTurn = useCallback(async () => {
-    if (!gameState || !playerId) return;
+    if (!gameState || !playerId || !hasDrawn) return;
      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (currentPlayer.id !== playerId) return;
 
@@ -264,7 +278,7 @@ export default function GamePage() {
     newState.turnMessage = `${newState.players[newState.currentPlayerIndex].name}'s turn...`;
     await updateGameState(newState);
     setHasDrawn(false);
-  }, [gameState, playerId, advanceTurn, updateGameState]);
+  }, [gameState, playerId, advanceTurn, updateGameState, hasDrawn]);
   
   const handleColorSelect = useCallback(async (color: CardColor) => {
     setIsColorPickerOpen(false);
@@ -272,8 +286,7 @@ export default function GamePage() {
       await processCardPlay(cardToPlay, color);
     }
     setCardToPlay(null);
-    toast({title: `You chose ${color}`});
-  }, [processCardPlay, cardToPlay, toast]);
+  }, [processCardPlay, cardToPlay]);
   
   const handleUnoClick = useCallback(async () => {
     console.log("UNO clicked");
@@ -287,7 +300,7 @@ export default function GamePage() {
          return gameState ? (
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
-            <p className="mb-2">Game ID: <span className="font-mono bg-muted px-2 py-1 rounded">{gameState.gameId}</span></p>
+            <p className="mb-2">Share this Game ID: <span className="font-mono bg-muted px-2 py-1 rounded">{gameState.gameId}</span></p>
             <p className="mb-4">{gameState.players.length} of {gameState.maxPlayers} players have joined.</p>
             <ul className="list-disc list-inside">
               {gameState.players.map(p => <li key={p.id}>{p.name}</li>)}
@@ -301,7 +314,7 @@ export default function GamePage() {
             <GameBoard
               gameState={gameState}
               onPlayCard={handlePlayCard}
-              onDrawCard={onDrawCard}
+              onDrawCard={handleDrawCard}
               onPassTurn={handlePassTurn}
               onUnoClick={handleUnoClick}
               isPlayerTurn={gameState.players[gameState.currentPlayerIndex].id === playerId}

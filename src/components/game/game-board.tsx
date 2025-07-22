@@ -28,7 +28,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUno
   const topCard = gameState.discardPile[gameState.discardPile.length - 1];
 
   if (!player) {
-    return <div>Loading player...</div>;
+    return <div>Joining game...</div>;
   }
 
   return (

@@ -38,7 +38,7 @@ export default function Home() {
                  toast({ title: "Game is full", description: "This game has already reached the maximum number of players.", variant: "destructive" });
                  return;
             }
-            router.push(`/game/${gameId}?playerName=${playerName}`);
+            router.push(`/game/${gameId}?playerName=${encodeURIComponent(playerName)}`);
        } else {
             toast({ title: "Game not found", description: "The Game ID you entered does not exist.", variant: "destructive" });
        }
@@ -48,7 +48,7 @@ export default function Home() {
   const handleCreateGame = () => {
     if (playerName) {
       const newGameId = Math.random().toString(36).substr(2, 9);
-      router.push(`/game/${newGameId}?playerName=${playerName}&newGame=true&maxPlayers=${maxPlayers}`);
+      router.push(`/game/${newGameId}?playerName=${encodeURIComponent(playerName)}&newGame=true&maxPlayers=${maxPlayers}`);
     }
   };
 
