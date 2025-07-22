@@ -112,7 +112,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
         {player && <PlayerHand player={player} onPlayCard={onPlayCard} gameState={gameState} isPlayerTurn={isPlayerTurn}/>}
       </div>
 
-       {player.hand.length === 1 && (
+       {player?.hand?.length === 1 && (
         <div className="absolute bottom-1/2 right-10 z-20">
           <Button onClick={handleUnoClick} className="bg-yellow-400 text-black hover:bg-yellow-500 text-2xl font-bold py-8 px-10 rounded-full shadow-lg animate-bounce">
             UNO
