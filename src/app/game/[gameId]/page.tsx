@@ -135,7 +135,7 @@ export default function GamePage() {
       return (currentIndex - 1 + players.length) % players.length;
     }
   }, []);
-
+  
   const processCardPlay = useCallback(async (card: CardType, chosenColor: CardColor | null) => {
     if (!gameState) return;
 
@@ -193,6 +193,7 @@ export default function GamePage() {
     setCardToPlay(null);
   }, [gameState, advanceTurn, toast, updateGameState]);
 
+
   const handlePlayCard = useCallback(async (card: CardType) => {
     if (!gameState || !playerId) return;
 
@@ -208,9 +209,8 @@ export default function GamePage() {
       return;
     }
     
-    setCardToPlay(card);
-
     if (card.color === 'Wild') {
+      setCardToPlay(card);
       setIsColorPickerOpen(true);
     } else {
       await processCardPlay(card, null);
@@ -232,23 +232,35 @@ export default function GamePage() {
 
     const drawnCard = newState.deck.shift()!;
     newState.players[newState.currentPlayerIndex].hand.push(drawnCard);
-
-    newState.currentPlayerIndex = advanceTurn(newState.players, newState.currentPlayerIndex, newState.gameDirection);
-    newState.turnMessage = `${newState.players[newState.currentPlayerIndex].name}'s turn...`;
     
     await updateGameState(newState);
     toast({ title: "Card Drawn", description: `You drew a ${drawnCard.color} ${drawnCard.value}.`});
 
-  }, [gameState, toast, advanceTurn, playerId, updateGameState]);
+  }, [gameState, toast, playerId, updateGameState]);
+
+  const handlePassTurn = useCallback(async () => {
+    if (!gameState || !playerId) return;
+     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer.id !== playerId) return;
+
+    let newState = {...gameState};
+    newState.currentPlayerIndex = advanceTurn(newState.players, newState.currentPlayerIndex, newState.gameDirection);
+    newState.turnMessage = `${newState.players[newState.currentPlayerIndex].name}'s turn...`;
+    await updateGameState(newState);
+  }, [gameState, playerId, advanceTurn, updateGameState]);
   
   const handleColorSelect = useCallback(async (color: CardColor) => {
+    setIsColorPickerOpen(false);
     if(cardToPlay) {
       await processCardPlay(cardToPlay, color);
     }
-    setIsColorPickerOpen(false);
     setCardToPlay(null);
     toast({title: `You chose ${color}`});
   }, [processCardPlay, cardToPlay, toast]);
+  
+  const handleUnoClick = useCallback(async () => {
+    console.log("UNO clicked");
+  }, []);
 
   const renderContent = () => {
     switch (gameStage) {
@@ -264,6 +276,8 @@ export default function GamePage() {
               gameState={gameState}
               onPlayCard={handlePlayCard}
               onDrawCard={handleDrawCard}
+              onPassTurn={handlePassTurn}
+              onUnoClick={handleUnoClick}
               isPlayerTurn={gameState.players[gameState.currentPlayerIndex].id === playerId}
               playerId={playerId}
             />
@@ -292,3 +306,5 @@ export default function GamePage() {
     </main>
   );
 }
+
+    

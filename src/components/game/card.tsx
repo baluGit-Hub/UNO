@@ -60,7 +60,8 @@ export function Card({ card, onClick, isPlayable = false }: CardProps) {
       className={cn(
         "w-24 h-36 md:w-28 md:h-40 rounded-lg p-2 flex flex-col justify-between shadow-lg transition-all duration-200 ease-in-out transform border-4 border-white dark:border-neutral-800",
         colorClasses[card.color],
-        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background" : "cursor-not-allowed opacity-70",
+        isPlayable ? "cursor-pointer hover:-translate-y-2 hover:shadow-2xl ring-4 ring-accent ring-offset-2 ring-offset-background" : "cursor-not-allowed",
+        !isPlayable && card.color !== 'Wild' && 'opacity-70'
       )}
     >
       <div className="text-left font-bold text-2xl">{card.value}</div>
@@ -71,3 +72,5 @@ export function Card({ card, onClick, isPlayable = false }: CardProps) {
     </button>
   );
 }
+
+    

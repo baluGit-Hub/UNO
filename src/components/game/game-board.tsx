@@ -7,18 +7,20 @@ import { Opponent } from "./opponent";
 import { Card } from "./card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, ArrowRight, Info, Volume2 } from "lucide-react";
+import { LogOut, ArrowRight, SkipForward } from "lucide-react";
 import { useRouter } from 'next/navigation';
 
 interface GameBoardProps {
   gameState: GameState;
   onPlayCard: (card: CardType) => void;
   onDrawCard: () => void;
+  onPassTurn: () => void;
+  onUnoClick: () => void;
   isPlayerTurn: boolean;
   playerId: string;
 }
 
-export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, playerId }: GameBoardProps) {
+export function GameBoard({ gameState, onPlayCard, onDrawCard, onPassTurn, onUnoClick, isPlayerTurn, playerId }: GameBoardProps) {
   const router = useRouter();
   const player = gameState.players.find(p => p.id === playerId);
   const opponents = gameState.players.filter(p => p.id !== playerId);
@@ -49,10 +51,6 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
   const leftOpponent = getOpponentByPosition("left");
   const rightOpponent = getOpponentByPosition("right");
 
-  const handleUnoClick = () => {
-    // TODO: Implement UNO logic
-    console.log("UNO!");
-  };
 
   if (!player) {
     return <div>Loading player...</div>;
@@ -64,7 +62,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
             <Button variant="destructive" onClick={() => router.push('/')}><LogOut className="mr-2"/> Quit</Button>
         </div>
         <div className="absolute top-4 right-4 z-20">
-            <Button variant="ghost" size="icon"><Volume2 /></Button>
+            <Button onClick={onPassTurn} disabled={!isPlayerTurn}>Pass Turn <SkipForward className="ml-2"/></Button>
         </div>
 
       {/* Opponents Area */}
@@ -114,7 +112,7 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
 
        {player?.hand?.length === 1 && (
         <div className="absolute bottom-1/2 right-10 z-20">
-          <Button onClick={handleUnoClick} className="bg-yellow-400 text-black hover:bg-yellow-500 text-2xl font-bold py-8 px-10 rounded-full shadow-lg animate-bounce">
+          <Button onClick={onUnoClick} className="bg-yellow-400 text-black hover:bg-yellow-500 text-2xl font-bold py-8 px-10 rounded-full shadow-lg animate-bounce">
             UNO
           </Button>
         </div>
@@ -122,3 +120,5 @@ export function GameBoard({ gameState, onPlayCard, onDrawCard, isPlayerTurn, pla
     </div>
   );
 }
+
+    
